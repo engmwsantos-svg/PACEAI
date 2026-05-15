@@ -680,8 +680,11 @@ async function sendChat() {
     const { data, error } = await sb.functions.invoke('coach-chat', {
       body: { mensagem: msg, atleta_id: currentUser.id, historico: chatHistory.slice(-6) }
     });
-    if (error) throw error;
+    if (error) throw new Error('Edge Function erro: ' + JSON.stringify(error));
+    if (!data) throw new Error('Sem resposta da função');
+    if (data.erro) throw new Error('Erro da IA: ' + data.erro);
     const resposta = data.resposta;
+    if (!resposta) throw new Error('Campo resposta vazio: ' + JSON.stringify(data));
     addChatMsg('coach', resposta);
     chatHistory.push({ role: 'assistant', content: resposta });
     // Salvar no banco
@@ -690,13 +693,9 @@ async function sendChat() {
       { atleta_id: currentUser.id, remetente: 'coach', mensagem: resposta }
     ]);
   } catch (e) {
-    // Resposta local de fallback
-    const respostas = [
-      'Boa pergunta! Para respostas personalizadas com IA, precisamos ativar a Edge Function do Supabase. Em breve você terá um coach inteligente! 💪',
-      'Entendo sua dúvida! A IA completa estará disponível após configurarmos a integração com a Claude API. Continue treinando! 🏃',
-      'Ótima pergunta! Em breve o coach IA vai responder com base nos seus dados reais do Garmin e histórico de treinos. 🤖'
-    ];
-    addChatMsg('coach', respostas[Math.floor(Math.random() * respostas.length)]);
+    // Mostrar erro real para debug
+    addChatMsg('coach', '⚠️ Erro: ' + e.message);
+    console.error('Chat error:', e);
   }
   btn.disabled = false; btn.textContent = 'Enviar';
 }
